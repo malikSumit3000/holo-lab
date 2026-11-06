@@ -1,0 +1,12 @@
+# Python / PyCharm
+.venv/
+__pycache__/
+*.pyc
+.idea/workspace.xml
+.idea/shelf/
+
+# macOS
+.DS_Store
+
+# Downloaded at runtime / large caches (Phase 4 library downloads go here)
+library/cache/

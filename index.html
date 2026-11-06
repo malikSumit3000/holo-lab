@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Holo Lab</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <video id="video" playsinline muted></video>
+  <canvas id="scene"></canvas>
+  <div id="scanlines"></div>
+  <div id="vignette"></div>
+
+  <!-- hand cursors -->
+  <div class="cursor" id="cursor0"><div class="ring outer"></div><div class="ring inner"></div><div class="progress"></div><div class="dot"></div><div class="tag"></div></div>
+  <div class="cursor" id="cursor1"><div class="ring outer"></div><div class="ring inner"></div><div class="progress"></div><div class="dot"></div><div class="tag"></div></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+
+    <div id="status" class="panel">
+      <div class="title">HOLO LAB <span>// v1.0</span></div>
+      <div class="row"><span>TRACKING</span><b id="st-tracking">--</b></div>
+      <div class="row"><span>HANDS</span><b id="st-hands">0</b></div>
+      <div class="row"><span>OBJECTS</span><b id="st-objects">0</b></div>
+      <div class="row"><span>MODE</span><b id="st-mode">MANIPULATE</b></div>
+      <div class="row"><span>FPS</span><b id="st-fps">--</b></div>
+      <div class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+
+    <div id="help" class="panel">
+      <div class="title">GESTURES <span>// H to hide</span></div>
+      <div class="row"><span>PINCH object</span><b>grab &amp; move</b></div>
+      <div class="row"><span>push / pull hand</span><b>depth</b></div>
+      <div class="row"><span>twist hand</span><b>rotate</b></div>
+      <div class="row"><span>flick + let go</span><b>throw</b></div>
+      <div class="row"><span>OPEN PALM swipe</span><b>spin</b></div>
+      <div class="row"><span>TWO-HAND pinch</span><b>resize / explode</b></div>
+      <div class="row"><span>FIST hold 1s</span><b>disintegrate</b></div>
+      <div class="row"><span>LIGHT PEN + pinch</span><b>sculpt in 3D</b></div>
+      <div class="row"><span>EXPLODED: pinch part</span><b>pull it out</b></div>
+      <div class="row"><span>pull far + let go</span><b>explore inside</b></div>
+      <div class="sep"></div>
+      <div class="row"><span>B / Esc</span><b>back up a level</b></div>
+      <div class="row"><span>T</span><b>tracking tuning</b></div>
+      <div class="row"><span>1-5</span><b>spawn</b></div>
+      <div class="row"><span>P / X</span><b>pen / clear</b></div>
+      <div class="row"><span>V / C</span><b>video / camera</b></div>
+      <div class="row"><span>M / F</span><b>mute / fullscreen</b></div>
+      <div class="row"><span>no camera?</span><b>use the mouse</b></div>
+    </div>
+
+    <div id="dock">
+      <button data-action="planet"><i>&#9711;</i>PLANET</button>
+      <button data-action="reactor"><i>&#9678;</i>REACTOR</button>
+      <button data-action="engine"><i>&#9881;</i>ENGINE</button>
+      <button data-action="dna"><i>&#8779;</i>DNA</button>
+      <button data-action="hypercube"><i>&#9635;</i>HYPERCUBE</button>
+      <button data-action="pen" id="btn-pen"><i>&#9998;</i>LIGHT PEN</button>
+      <button data-action="clear"><i>&#10005;</i>CLEAR</button>
+    </div>
+
+    <div id="toast"></div>
+    <div id="crumbs"></div>
+    <div id="infocard" class="panel"></div>
+  </div>
+
+  <div id="tuning" class="panel"></div>
+
+  <!-- boot screen -->
+  <div id="boot">
+    <div class="boot-inner">
+      <div class="logo"><div class="l1"></div><div class="l2"></div><div class="l3"></div></div>
+      <h1>HOLO LAB</h1>
+      <div id="boot-log"></div>
+      <button id="start">INITIALIZE</button>
+      <div class="boot-hint">Allow camera access when asked. Chrome recommended.</div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
