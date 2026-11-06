@@ -6,7 +6,7 @@ import { COLORS } from './holo.js';
 
 const GHOST = 0.05;
 const FOCUS_POS = new THREE.Vector3(0, 0.45, 1.0);
-const FOCUS_SIZE = 1.7;   // world radius the focused part is scaled to (kept as it explodes)
+const FOCUS_SIZE = 2.3;   // world radius the focused part is scaled to (kept as it explodes)
 
 export class FocusManager {
   constructor({ scene, objects, sfx, toast, particles }) {

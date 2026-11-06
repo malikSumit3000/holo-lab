@@ -53,6 +53,8 @@
       <div class="sep"></div>
       <div class="row"><span>B / Esc</span><b>back up a level</b></div>
       <div class="row"><span>T</span><b>tracking tuning</b></div>
+      <div class="row"><span>G</span><b>Holo Shooter game</b></div>
+      <div class="row"><span>W</span><b>3D window (head tracking)</b></div>
       <div class="row"><span>1-5</span><b>spawn</b></div>
       <div class="row"><span>P / X</span><b>pen / clear</b></div>
       <div class="row"><span>V / C</span><b>video / camera</b></div>
@@ -67,6 +69,7 @@
       <button data-action="dna"><i>&#8779;</i>DNA</button>
       <button data-action="hypercube"><i>&#9635;</i>HYPERCUBE</button>
       <button data-action="pen" id="btn-pen"><i>&#9998;</i>LIGHT PEN</button>
+      <button data-action="game" id="btn-game"><i>&#9673;</i>GAME</button>
       <button data-action="clear"><i>&#10005;</i>CLEAR</button>
     </div>
 
@@ -76,6 +79,29 @@
   </div>
 
   <div id="tuning" class="panel"></div>
+
+  <!-- Holo Shooter HUD -->
+  <div id="game" class="hidden">
+    <div id="g-top">
+      <div class="g-stat"><span>SCORE</span><b id="g-score">0</b></div>
+      <div class="g-stat"><span>WAVE</span><b id="g-wave">-</b></div>
+      <div class="g-stat"><span>COMBO</span><b id="g-combo">x1</b></div>
+      <div class="g-stat"><span>ACCURACY</span><b id="g-acc">--</b></div>
+      <div class="g-stat"><span>BEST</span><b id="g-best">0</b></div>
+    </div>
+    <button id="g-exit">&#10005; EXIT</button>
+    <div id="g-health"><span>HULL</span><div class="track"><i id="g-health-bar"></i></div></div>
+    <div id="g-ammo"></div>
+    <div id="g-banner"></div>
+    <div id="g-hint"></div>
+    <div id="g-dmg"></div>
+    <div class="xhair" id="xhair0"><i></i></div>
+    <div class="xhair" id="xhair1"><i></i></div>
+    <div class="xhair" id="xhair2"><i></i></div>
+    <div class="shield" id="shield0"></div>
+    <div class="shield" id="shield1"></div>
+    <div class="shield" id="shield2"></div>
+  </div>
 
   <!-- boot screen -->
   <div id="boot">

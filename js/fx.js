@@ -129,6 +129,18 @@ export class Sfx {
   explode() { this.tone(200, 90, 0.3, 'triangle', 0.4); this.noise(0.25, 0.3, 600); }
   penStart() { this.tone(600, 1200, 0.12, 'sine', 0.35); }
   penEnd() { this.tone(1200, 1800, 0.12, 'sine', 0.35); }
+  // ---- Holo Shooter ----
+  shoot() { this.tone(1800, 220, 0.16, 'sawtooth', 0.35); this.noise(0.08, 0.35, 4000); }
+  hit() { this.tone(900, 1400, 0.07, 'square', 0.3); }
+  kill() { this.noise(0.45, 0.8, 700); this.tone(500, 60, 0.4, 'sawtooth', 0.35); }
+  empty() { this.tone(2400, 2300, 0.03, 'square', 0.25); }
+  reload() { this.tone(700, 500, 0.05, 'square', 0.3); this.tone(900, 1200, 0.06, 'square', 0.3, 0.35); }
+  enemyShot() { this.tone(300, 520, 0.25, 'sine', 0.15); }
+  block() { this.tone(1200, 1900, 0.12, 'triangle', 0.5); this.noise(0.1, 0.3, 5000); }
+  playerHit() { this.tone(160, 50, 0.35, 'sawtooth', 0.6); this.noise(0.3, 0.7, 300); }
+  wave() { [0, 0.1, 0.2].forEach((d, i) => this.tone(400 + i * 200, 800 + i * 300, 0.18, 'triangle', 0.35, d)); }
+  gameOver() { [0, 0.25, 0.5].forEach((d, i) => this.tone(500 - i * 120, 200 - i * 50, 0.4, 'sawtooth', 0.35, d)); }
+
   boot() {
     [0, 0.12, 0.24].forEach((d, i) => this.tone(300 + i * 250, 600 + i * 400, 0.25, 'sine', 0.35, d));
     this.tone(80, 1600, 1.0, 'sawtooth', 0.15, 0.35);

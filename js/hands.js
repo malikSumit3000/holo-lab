@@ -1,8 +1,9 @@
 // Camera + MediaPipe hand tracking (runs in the browser on the GPU).
-import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+import { FilesetResolver, HandLandmarker, FaceLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
 const MP_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
-const REMOTE_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
+const REMOTE_FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task';
+const REMOTE_MODEL ='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
 
 export class HandTracker {
   constructor(video) {
@@ -17,8 +18,33 @@ export class HandTracker {
     this.cameraOk = false;
   }
 
+  /** Face tracking for the "3D window" effect - loaded only when first switched on. */
+  async initFace() {
+    if (this.face) return;
+    this.fileset = this.fileset || await FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);
+    let lastErr;
+    for (const delegate of ['GPU', 'CPU']) {
+      for (const path of ['models/face_landmarker.task', REMOTE_FACE_MODEL]) {
+        try {
+          this.face = await FaceLandmarker.createFromOptions(this.fileset, {
+            baseOptions: { modelAssetPath: path, delegate }, runningMode: 'VIDEO', numFaces: 1,
+          });
+          return;
+        } catch (e) { lastErr = e; }
+      }
+    }
+    throw lastErr || new Error('Could not load the face model');
+  }
+
+  detectFace(nowMs) {
+    if (!this.face || !this.cameraOk || this.video.readyState < 2) return null;
+    if (this.video.currentTime === this.lastFaceTime) return null;
+    this.lastFaceTime = this.video.currentTime;
+    return this.face.detectForVideo(this.video, nowMs);
+  }
+
   async initModel() {
-    const fileset = await FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);
+    const fileset = this.fileset = await FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);
     let lastErr;
     for (const delegate of ['GPU', 'CPU']) {
       for (const path of ['models/hand_landmarker.task', REMOTE_MODEL]) {
@@ -88,6 +114,10 @@ export function analyzeHand(lm, vw, vh) {
   const avg = (ids) => ({ x: ids.reduce((s, i) => s + lm[i].x, 0) / ids.length, y: ids.reduce((s, i) => s + lm[i].y, 0) / ids.length });
   // angle of the wrist->middle-knuckle line on screen (mirrored, y up): twisting the hand changes it
   const roll = Math.atan2(-(lm[9].y - lm[0].y) * vh, -(lm[9].x - lm[0].x) * vw);
+  // finger gun: index out, other three curled. The thumb is the "hammer":
+  // up = cocked (far from the index knuckle), down = fire (resting against the index).
+  const gunPose = extended[0] && !extended[1] && !extended[2] && !extended[3];
+  const thumbRatio = Math.min(dist(lm[4], lm[5], vw, vh), dist(lm[4], lm[6], vw, vh)) / palm;
   return {
     lm,
     palmSize: palm / vh,
@@ -97,6 +127,8 @@ export function analyzeHand(lm, vw, vh) {
     pinch: avg([4, 8]),
     palmCenter: avg([0, 5, 9, 13, 17]),
     roll,
+    gunPose,
+    thumbRatio,
   };
 }
 

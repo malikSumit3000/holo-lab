@@ -13,6 +13,8 @@ import { AssemblyObject } from './parts.js';
 import { ENGINE_DEF } from './models/engine.js';
 import { FocusManager } from './focus.js';
 import { CONFIG, TUNABLES, saveConfig, resetConfig } from './config.js';
+import { Shooter } from './game.js';
+import { OneEuro } from './filters.js';
 
 const MAX_OBJECTS = 10;
 FACTORIES.engine = () => new AssemblyObject(ENGINE_DEF);   // detailed, drillable engine
@@ -132,10 +134,44 @@ function clearAll() {
   toast('ALL CLEAR');
 }
 
-const interaction = new Interaction({ scene, camera, objects, particles, sfx, toast, onSpawn: spawn, onClear: clearAll });
+const interaction = new Interaction({ scene, camera, objects, particles, sfx, toast, onSpawn: (a) => (a === 'game' ? shooter.start() : spawn(a)), onClear: clearAll });
 const focus = new FocusManager({ scene, objects, sfx, toast, particles });
 focus.interaction = interaction;
 interaction.focus = focus;
+const shooter = new Shooter({ scene, camera, interaction, particles, sfx, objects, focus, onExit: () => shooter.stop() });
+
+// camera rig: head tracking ("3D window") + screen shake
+const rig = { on: false, loading: false, head: new THREE.Vector3(), fx: new OneEuro(), fy: new OneEuro() };
+async function toggleHeadTracking() {
+  if (!tracker.cameraOk) return toast('3D WINDOW NEEDS THE CAMERA');
+  if (rig.loading) return;
+  if (!rig.on && !tracker.face) {
+    rig.loading = true; toast('LOADING FACE TRACKING...');
+    try { await tracker.initFace(); } catch (e) { console.error(e); rig.loading = false; return toast('FACE TRACKING FAILED TO LOAD'); }
+    rig.loading = false;
+  }
+  rig.on = !rig.on;
+  toast(rig.on ? '3D WINDOW ON - MOVE YOUR HEAD' : '3D WINDOW OFF');
+}
+function updateRig(dt, nowMs) {
+  if (rig.on) {
+    const r = tracker.detectFace(nowMs);
+    const lm = r && r.faceLandmarks && r.faceLandmarks[0];
+    if (lm) {
+      const s = interaction._toScreen(lm[1]);          // nose tip, mirrored like the video
+      const hx = (s.x / innerWidth - 0.5) * 2, hy = (s.y / innerHeight - 0.5) * 2;
+      rig.head.x = rig.fx.filter(hx * 2.4, nowMs / 1000, 1.0, 0.4);
+      rig.head.y = rig.fy.filter(-hy * 1.5, nowMs / 1000, 1.0, 0.4);
+    }
+  } else {
+    rig.head.multiplyScalar(Math.exp(-4 * dt));
+    rig.fx.reset(); rig.fy.reset();
+  }
+  const k = shooter.shake * 0.18;
+  camera.position.set(rig.head.x + (Math.random() - 0.5) * k, rig.head.y + (Math.random() - 0.5) * k, 10);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+}
 
 // ---------------- layout ----------------
 function updateCover() {
@@ -161,6 +197,16 @@ video.addEventListener('loadedmetadata', updateCover);
 addEventListener('keydown', async (e) => {
   if (e.metaKey || e.ctrlKey) return;
   const k = e.key.toLowerCase();
+  if (k === 'g') return shooter.active ? shooter.stop() : shooter.start();
+  if (k === 'w') return toggleHeadTracking();
+  if (shooter.active) {
+    if (k === 'escape') shooter.stop();
+    else if (k === 'r') shooter.startReload();
+    else if (k === 'm') toast(sfx.toggleMute() ? 'SOUND OFF' : 'SOUND ON');
+    else if (k === 'f') { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); }
+    else if (k === 't') toggleTuning();
+    return;
+  }
   const types = ['planet', 'reactor', 'engine', 'dna', 'hypercube'];
   if (k >= '1' && k <= '5') spawn(types[Number(k) - 1]);
   else if (k === 'p') interaction.togglePen();
@@ -270,9 +316,11 @@ function frame(now) {
   t += dt;
   sharedTime.value = t;
 
+  updateRig(dt, now);
   const res = tracker.detect(now);
   if (res) interaction.setHandResults(res, video.videoWidth, video.videoHeight, now / 1000);
   interaction.update(dt, now / 1000);
+  shooter.update(dt);
 
   for (let i = objects.length - 1; i >= 0; i--) {
     const o = objects[i];
@@ -289,7 +337,7 @@ function frame(now) {
     hudTimer = 0;
     $('st-hands').textContent = interaction.handCount;
     $('st-objects').textContent = objects.filter((o) => !o.dying).length;
-    $('st-mode').textContent = interaction.penMode ? 'LIGHT PEN' : 'MANIPULATE';
+    $('st-mode').textContent = shooter.active ? 'HOLO SHOOTER' : focus.depth ? `DRILL DEPTH ${focus.depth}` : interaction.penMode ? 'LIGHT PEN' : 'MANIPULATE';
     $('st-fps').textContent = Math.round(fps);
   }
   composer.render(dt);
@@ -298,4 +346,4 @@ requestAnimationFrame(frame);
 onResize();
 
 // handy for debugging in the browser console
-window.holo = { scene, camera, objects, interaction, focus, spawn, clearAll, tracker, bloom, CONFIG, THREE };
+window.holo = { scene, camera, objects, interaction, focus, shooter, rig, spawn, clearAll, tracker, bloom, CONFIG, THREE };

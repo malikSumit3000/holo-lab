@@ -9,6 +9,10 @@ function pose(name) {
   const P = JSON.parse(JSON.stringify(OPEN));
   if (name === 'pinch') P[4] = [P[8][0] + 4, P[8][1] + 4];
   if (name === 'fist') Object.assign(P, { 4: [-20, -100], 7: [-38, -150], 8: [-35, -110], 11: [0, -160], 12: [0, -120], 15: [30, -150], 16: [30, -115], 19: [58, -140], 20: [55, -105] });
+  // finger gun: index out, other fingers curled; thumb up (cocked) or down against the index (fire)
+  const curled = { 11: [0, -160], 12: [0, -120], 15: [30, -150], 16: [30, -115], 19: [58, -140], 20: [55, -105] };
+  if (name === 'gun') Object.assign(P, curled, { 2: [-70, -60], 3: [-100, -80], 4: [-130, -95] });
+  if (name === 'gunfire') Object.assign(P, curled, { 2: [-60, -70], 3: [-60, -115], 4: [-48, -150] });
   return P;
 }
 
@@ -30,7 +34,10 @@ export async function runTests(H) {
     const { sx: kx, sy: ky } = I.mapping;
     const jx = (Math.random() * 2 - 1) * jitter, jy = (Math.random() * 2 - 1) * jitter;
     const rx = 1 - ((((sx + jx) / innerWidth) - 0.5) * kx + 0.5), ry = ((((sy + jy) / innerHeight) - 0.5) * ky + 0.5);
-    const ax = (P[4][0] + P[8][0]) / 2, ay = (P[4][1] + P[8][1]) / 2;
+    // anchor: pinch point normally; index tip for the gun (so the thumb moving doesn't move the aim);
+    // palm centre for 'palm'
+    const ids = p.startsWith('gun') ? [8] : p === 'palm' ? [0, 5, 9, 13, 17] : [4, 8];
+    const ax = ids.reduce((s, i) => s + P[i][0], 0) / ids.length, ay = ids.reduce((s, i) => s + P[i][1], 0) / ids.length;
     // hand shape offsets are in camera pixels; x is mirrored on screen
     return Object.keys(P).map((k) => ({ x: rx - (P[k][0] - ax) / VW, y: ry + (P[k][1] - ay) / VH, z: 0 }));
   }
@@ -65,6 +72,7 @@ export async function runTests(H) {
   const partNamed = (obj, name) => obj.parts.find((p) => p.def.name === name);
 
   async function reset() {
+    if (H.shooter.active) H.shooter.stop();
     H.focus.reset();
     I.resetPointers();
     H.clearAll();
@@ -284,6 +292,96 @@ export async function runTests(H) {
     await drive(steps);
     I.togglePen(false);
     expect(H.objects.some((o) => o.type === 'sculpture'), 'no sculpture created');
+  });
+
+  // =================================== HOLO SHOOTER ===================================
+  const G = H.shooter;
+  async function startGame() {
+    G.start();
+    G.setState('playing');      // skip the intro countdown
+    G.wave = 1;
+    G.bannerUntil = 0;
+    G.queue = [{ at: Infinity }];   // placeholder: stops the empty wave from counting as "cleared"
+    await sleep(300);
+  }
+  const gunHold = (x, y, p, dur) => ({ dur, hands: [{ from: [x, y], pose: p }] });
+
+  await test('finger gun: one shot per trigger pull, no auto-fire, debounce', async () => {
+    await startGame();
+    const x = innerWidth * 0.3, y = innerHeight * 0.55;
+    await drive([gunHold(x, y, 'gun', 300), gunHold(x, y, 'gunfire', 400)]);
+    expect(G.shots === 1, `holding the trigger fired ${G.shots} shots (expected 1)`);
+    await drive([gunHold(x, y, 'gun', 200), gunHold(x, y, 'gunfire', 200)]);
+    expect(G.shots === 2, `second pull: ${G.shots} shots`);
+    // re-pull faster than the debounce: must NOT fire
+    await drive([gunHold(x, y, 'gun', 200), gunHold(x, y, 'gunfire', 40), gunHold(x, y, 'gun', 30), gunHold(x, y, 'gunfire', 200)]);
+    expect(G.shots === 3, `fast double pull gave ${G.shots - 2} shots (expected 1)`);
+    return `${G.shots} shots`;
+  });
+
+  await test('aiming the finger gun at a drone destroys it', async () => {
+    await startGame();
+    G.difficulty = 0.0001;                       // freeze its movement
+    const d = G.spawnDrone('basic', new V(-1.5, 0.5, -3));
+    d.fireIn = 999;
+    await sleep(800);
+    const [tx, ty] = screenOf(d.group.position);
+    // find where the crosshair lands for a given hand position, then shift the hand onto the target
+    const hx = innerWidth * 0.5, hy = innerHeight * 0.6;
+    await drive([gunHold(hx, hy, 'gun', 350)]);
+    const a = I.hands[0].aim;
+    const nx = hx + (tx - a.x), ny = hy + (ty - a.y);
+    await drive([move([hx, hy], [nx, ny], 'gun', 300), gunHold(nx, ny, 'gun', 300), gunHold(nx, ny, 'gunfire', 200)]);
+    expect(!d.alive, `drone survived (shots ${G.shots}, hits ${G.hits})`);
+    expect(G.score > 0, 'no score');
+    return `score ${G.score}`;
+  });
+
+  await test('open palm shield blocks shots only where it is', async () => {
+    await startGame();
+    const cx = innerWidth / 2, cy = innerHeight / 2;
+    const h0 = G.health;
+    // palm right over the incoming shot
+    G.spawnPlasma(new V(0, 0, 7.6), new V(0, 0, 10), 3);
+    await drive([{ dur: 900, hands: [{ from: [cx, cy], pose: 'palm' }] }]);
+    expect(G.health === h0, `shield did not block (health ${G.health})`);
+    // palm far away: the shot gets through
+    G.spawnPlasma(new V(0, 0, 7.6), new V(0, 0, 10), 3);
+    await drive([{ dur: 900, hands: [{ from: [innerWidth * 0.12, innerHeight * 0.2], pose: 'palm' }] }]);
+    expect(G.health === h0 - 10, `unblocked shot did ${h0 - G.health} damage (expected 10)`);
+  });
+
+  await test('fist reloads an empty magazine', async () => {
+    await startGame();
+    G.ammo = 0;
+    await drive([{ dur: 1100, hands: [{ from: [innerWidth * 0.4, innerHeight * 0.5], pose: 'fist' }] }]);
+    expect(G.ammo === H.CONFIG.magazine, `ammo ${G.ammo} after reload`);
+  });
+
+  await test('game over, then restart', async () => {
+    await startGame();
+    G.health = 5;
+    G.spawnPlasma(new V(0, 0, 7.6), new V(0, 0, 10), 4);
+    await sleep(900);
+    expect(G.state === 'over', `state ${G.state}`);
+    G.stateT = 2;
+    const x = innerWidth * 0.2, y = innerHeight * 0.7;
+    await drive([gunHold(x, y, 'gun', 250), gunHold(x, y, 'gunfire', 200)]);
+    expect(G.state === 'intro' && G.health === H.CONFIG.maxHealth, `after restart: ${G.state}, health ${G.health}`);
+  });
+
+  await test('lab -> game -> lab keeps every lab object', async () => {
+    const a = H.spawn('planet', new V(-2, 0, 0));
+    const b = H.spawn('engine', new V(2, 0, 0));
+    await sleep(700);
+    G.start();
+    await sleep(300);
+    expect(!a.group.visible && !b.group.visible, 'lab objects visible during the game');
+    expect(I.mode === 'game', 'interaction not in game mode');
+    G.stop();
+    await sleep(200);
+    expect(a.group.visible && b.group.visible && H.objects.length === 2, 'lab not restored');
+    expect(I.mode === 'lab' && !G.root.children.length, 'game leftovers');
   });
 
   await reset();

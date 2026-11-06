@@ -164,6 +164,74 @@ html, body {
 #infocard .fact { margin-top: 8px; font-size: 11px; line-height: 1.5; opacity: .8; border-left: 2px solid var(--holo-dim); padding-left: 8px; }
 #infocard .hint { margin-top: 10px; font-size: 10px; letter-spacing: 1.5px; color: var(--hot); }
 
+/* ---------------- Holo Shooter ---------------- */
+body.game #dock, body.game #help, body.game #crumbs, body.game #infocard, body.game #toast { display: none; }
+#game { position: fixed; inset: 0; z-index: 6; pointer-events: none; --enemy: #ff5a40; }
+#game.hidden { display: none; }
+#g-top {
+  position: fixed; top: 26px; left: 50%; transform: translateX(-50%); display: flex; gap: 28px;
+  padding: 10px 24px; background: rgba(4, 30, 45, .45); border: 1px solid var(--holo-dim);
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+}
+.g-stat { text-align: center; font-size: 10px; letter-spacing: 2px; opacity: .9; }
+.g-stat b { display: block; font-size: 22px; font-weight: 300; color: #fff; text-shadow: 0 0 10px var(--holo); letter-spacing: 1px; }
+#g-exit {
+  position: fixed; top: 30px; right: 30px; pointer-events: auto; cursor: pointer;
+  font-family: var(--font); letter-spacing: 3px; font-size: 12px; color: var(--hot);
+  background: rgba(40, 20, 0, .4); border: 1px solid var(--hot); padding: 10px 16px;
+}
+#g-health { position: fixed; bottom: 40px; left: 40px; width: 300px; font-size: 11px; letter-spacing: 3px; }
+#g-health .track { height: 10px; margin-top: 6px; border: 1px solid var(--holo-dim); background: rgba(62,232,255,.06); }
+#g-health i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #3ee8ff, #7dffb0); box-shadow: 0 0 12px var(--holo); transition: width .2s; }
+#g-health i.low { background: linear-gradient(90deg, #ff4d6d, #ffb347); box-shadow: 0 0 14px #ff4d6d; animation: blink .6s infinite; }
+@keyframes blink { 50% { opacity: .4; } }
+#g-ammo { position: fixed; bottom: 40px; right: 40px; display: flex; gap: 6px; align-items: flex-end; height: 34px; }
+#g-ammo i { width: 9px; height: 30px; border: 1px solid var(--holo-dim); transform: skewX(-12deg); }
+#g-ammo i.full { background: var(--holo); box-shadow: 0 0 10px var(--holo); }
+#g-ammo .reload { font-size: 12px; letter-spacing: 3px; color: var(--hot); }
+#g-banner {
+  position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center;
+  opacity: 0; transition: opacity .3s; pointer-events: auto;
+  width: max-content; max-width: 92vw;
+  padding: 26px 56px; background: radial-gradient(ellipse at center, rgba(2, 10, 18, .82) 0%, rgba(2, 10, 18, .6) 60%, transparent 100%);
+}
+#g-banner.show { opacity: 1; }
+#g-banner .t { font-size: 54px; font-weight: 200; letter-spacing: 14px; color: #fff; text-shadow: 0 0 24px var(--holo); }
+#g-banner .s { margin-top: 12px; font-size: 13px; letter-spacing: 3px; line-height: 1.9; }
+#g-banner .g-small { font-size: 10px; opacity: .6; margin-top: 8px; }
+#g-restart {
+  margin-top: 18px; font-family: var(--font); letter-spacing: 4px; font-size: 14px; color: #fff; cursor: pointer;
+  background: rgba(62,232,255,.15); border: 1px solid var(--holo); padding: 12px 28px; box-shadow: 0 0 20px var(--holo-dim);
+}
+#g-hint { position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 13px; letter-spacing: 3px; color: var(--hot); opacity: 0; transition: opacity .2s; }
+#g-hint.show { opacity: 1; }
+#g-dmg { position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(255, 30, 60, .55) 100%); opacity: 0; }
+#g-dmg.flash { animation: dmg .45s ease-out; }
+@keyframes dmg { 0% { opacity: 1; } 100% { opacity: 0; } }
+.g-pop {
+  position: fixed; transform: translate(-50%, -50%); font-size: 15px; letter-spacing: 2px; color: #fff;
+  text-shadow: 0 0 10px var(--hot); animation: pop .9s ease-out forwards; white-space: nowrap;
+}
+@keyframes pop { to { transform: translate(-50%, -160%); opacity: 0; } }
+.xhair { position: fixed; left: 0; top: 0; width: 0; height: 0; display: none; }
+.xhair::before, .xhair::after, .xhair i {
+  content: ''; position: absolute; transform: translate(-50%, -50%); border: 2px solid var(--holo);
+  box-shadow: 0 0 10px var(--holo); transition: all .12s;
+}
+.xhair::before { width: 46px; height: 46px; border-radius: 50%; border-style: dashed; }
+.xhair::after { width: 4px; height: 4px; background: #fff; border-radius: 50%; }
+.xhair i { width: 70px; height: 0; border-width: 1px 0 0; opacity: .6; }
+.xhair.lock::before { width: 34px; height: 34px; border-color: var(--enemy); box-shadow: 0 0 14px var(--enemy); border-style: solid; }
+.xhair.down::before { width: 26px; height: 26px; }
+.shield {
+  position: fixed; left: 0; top: 0; display: none; margin: 0; border-radius: 50%;
+  translate: -50% -50%;
+  background:
+    radial-gradient(circle, transparent 55%, rgba(62,232,255,.25) 70%, rgba(62,232,255,.05) 100%),
+    repeating-conic-gradient(from 0deg, rgba(62,232,255,.25) 0 2deg, transparent 2deg 30deg);
+  border: 2px solid var(--holo); box-shadow: 0 0 30px var(--holo), inset 0 0 30px rgba(62,232,255,.4);
+}
+
 /* ---------------- tuning ---------------- */
 #tuning {
   z-index: 8; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 380px;

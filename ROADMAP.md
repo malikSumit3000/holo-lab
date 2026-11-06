@@ -156,5 +156,5 @@ V4 ENGINE
 |---|---|
 | 1 – Precision | built – 13/13 regression tests passed (synthetic hands); needs a real-hand feel check |
 | 2 – Drill-down parts | built – drill chain, ghosting, breadcrumbs, 10-cycle test passed; needs a real-hand feel check |
-| 3 – Holo Shooter | next |
-| 4 – Voice → object | planned |
+| 3 – Holo Shooter | built – 19/19 regression tests passed (6 new game tests); needs a real-hand feel check |
+| 4 – Voice → object | next |

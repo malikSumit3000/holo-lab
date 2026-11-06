@@ -52,9 +52,20 @@ class Pointer {
     this.fLm = Array.from({ length: 21 }, () => new OneEuro2D());
     this.rollRawPrev = null;
     this.rollUnwrapped = 0;
+    // finger gun (Holo Shooter)
+    this.gunPose = false;
+    this.thumbDown = false;
+    this.cocked = false;
+    this.fire = false;             // one-shot event, consumed by the game
+    this.fireAim = null;           // aim from just before the trigger pull (trigger jerk removed)
+    this.lastShot = -1;
+    this.aim = { x: 0, y: 0 };
+    this.aimHist = [];
+    this.fAim = new OneEuro2D();
   }
 
   resetFilters() {
+    this.fAim.reset(); this.aimHist = [];
     this.fCursor.reset(); this.fPalm.reset(); this.fDepth.reset(); this.fRoll.reset();
     this.fLm.forEach((f) => f.reset());
     this.rollRawPrev = null;
@@ -78,6 +89,7 @@ export class Interaction {
     this.onSpawn = onSpawn;
     this.onClear = onClear;
     this.focus = null;             // FocusManager, set by main
+    this.mode = 'lab';             // 'lab' | 'game'
     this.penMode = false;
     this.penColor = 0;
     this.mapping = { sx: 1, sy: 1 };
@@ -160,6 +172,26 @@ export class Interaction {
       const o = p.fLm[i].filter(q.x, q.y, t, mc, beta);
       return { x: o.x, y: o.y, z: l.z };
     });
+
+    // ---- finger gun: aim along the index finger, thumb drop = trigger ----
+    const tip = this._toScreen(f.lm[8]), knuckle = this._toScreen(f.lm[5]);
+    p.fAim.filter(tip.x + (tip.x - knuckle.x) * C.aimExtend, tip.y + (tip.y - knuckle.y) * C.aimExtend, t, mc, beta, p.aim);
+    p.aimHist.push({ t, x: p.aim.x, y: p.aim.y });
+    while (p.aimHist.length > 2 && t - p.aimHist[0].t > 0.15) p.aimHist.shift();
+    p.gunPose = f.gunPose;
+    const wasCocked = p.cocked;
+    if (p.thumbDown) { if (f.thumbRatio > C.thumbUpT) p.thumbDown = false; }
+    else if (f.thumbRatio < C.thumbDownT) {
+      p.thumbDown = true;
+      // fire only on a real "cocked -> down" pull, never while the thumb just stays down
+      if (wasCocked && f.gunPose && t - p.lastShot >= C.fireDebounce) {
+        p.fire = true;
+        p.lastShot = t;
+        const before = p.aimHist.find((a) => t - a.t <= 0.1) || p.aimHist[p.aimHist.length - 1];
+        p.fireAim = { x: before.x, y: before.y };
+      }
+    }
+    p.cocked = f.gunPose && !p.thumbDown;
   }
 
   // ======================================================================
@@ -266,6 +298,7 @@ export class Interaction {
       } else { p.prevPalmScreen = null; p.palmVel.set(0, 0); }
 
       this.screenToNdc(p.screen.x, p.screen.y, p.ndc);
+      if (this.mode === 'game') continue;          // the game reads the pointers itself
 
       if (p.present && p.state === 'idle') {
         const btn = this._buttonAt(p.screen.x, p.screen.y);
@@ -286,6 +319,8 @@ export class Interaction {
       if (p.state === 'draw') this._updateStroke(p);
       if (p.present && p.state === 'idle') { this._palmSpin(p, dt); this._fistDestroy(p, dt); }
     }
+
+    if (this.mode === 'game') { this._updateCursors(); this._updateHandVisuals(); return; }
 
     // highlights + info card
     const active = this.pointers.filter((p) => p.present);
@@ -611,8 +646,8 @@ export class Interaction {
     for (const p of this.hands) {
       const el = p.cursorEl;
       if (!el) continue;
-      el.style.display = p.present ? 'block' : 'none';
-      if (!p.present) continue;
+      el.style.display = p.present && this.mode !== 'game' ? 'block' : 'none';
+      if (!p.present || this.mode === 'game') continue;
       el.style.transform = `translate(${p.screen.x}px, ${p.screen.y}px)`;
       let text = '';
       if (p.state === 'grab' && p.grab) text = p.grab.obj.two ? (p.grab.obj.explodable ? 'EXPLODE VIEW' : 'RESIZE / ROTATE') : p.grab.obj.name;

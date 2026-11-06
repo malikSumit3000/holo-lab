@@ -21,6 +21,18 @@ const DEFAULTS = {
   depthNear: 0.32, depthFar: 0.10,   // palm size (fraction of frame height) -> depth range
   zNear: 2.5, zFar: -4.5,
   pullDrillDist: 0.9,      // release a pulled-out part this far from its slot to drill into it
+
+  // --- Holo Shooter ---
+  aimAssist: 0.35,         // (tunable) how strongly the crosshair is pulled toward nearby targets (0 = off)
+  aimAssistPx: 70,         // ... within this many pixels
+  aimExtend: 0.6,          // crosshair sits this far beyond the fingertip (fraction of finger length)
+  thumbDownT: 0.38,        // thumb closer than this (x palm size) to the index = trigger pulled
+  thumbUpT: 0.55,          // thumb further than this = cocked again
+  fireDebounce: 0.15,      // seconds between shots, minimum
+  magazine: 8,
+  reloadTime: 0.8,
+  shieldRadius: 120,       // px
+  maxHealth: 100,
 };
 
 export const TUNABLES = [
@@ -31,6 +43,7 @@ export const TUNABLES = [
   { key: 'depthGain', label: 'Depth sensitivity', min: 0, max: 3, step: 0.05 },
   { key: 'twistGain', label: 'Twist sensitivity', min: 0, max: 3, step: 0.05 },
   { key: 'grabMagnet', label: 'Grab zone size', min: 1, max: 2, step: 0.05 },
+  { key: 'aimAssist', label: 'Shooter aim assist', min: 0, max: 0.8, step: 0.05 },
 ];
 
 const STORE_KEY = 'holo-lab-config-v1';
