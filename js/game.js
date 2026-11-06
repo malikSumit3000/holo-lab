@@ -125,6 +125,7 @@ export class Shooter {
     this.root = new THREE.Group();
     scene.add(this.root);
     this.active = false;
+    this.debug = true;            // diagnostics readout (D)
     this.state = 'off';
     this.drones = [];
     this.plasma = [];
@@ -154,7 +155,7 @@ export class Shooter {
     this.active = true;
     this.reset();
     this.setState('intro');
-    this.banner('HOLO SHOOTER', 'FINGER GUN TO AIM &middot; DROP YOUR THUMB TO FIRE<br>OPEN PALM = SHIELD &middot; FIST = RELOAD', 4.2);
+    this.banner('HOLO SHOOTER', 'FINGER GUN TO AIM &middot; FIRE: DROP YOUR THUMB or FLICK YOUR FINGER UP<br>OPEN PALM = SHIELD &middot; FIST = RELOAD &middot; D = DIAGNOSTICS', 4.2);
   }
 
   stop() {
@@ -176,7 +177,7 @@ export class Shooter {
     this.clearEntities();
     Object.assign(this, {
       score: 0, wave: 0, health: C.maxHealth, ammo: C.magazine, reloading: 0,
-      streak: 0, shots: 0, hits: 0, time: 0, stateT: 0, difficulty: 1, bannerUntil: 0,
+      streak: 0, shots: 0, hits: 0, time: 0, stateT: 0, difficulty: 1, bannerUntil: 0, lastWhy: '',
     });
   }
 
@@ -237,7 +238,7 @@ export class Shooter {
     for (const t of this.targets()) {
       const s = this.toScreen(t.group.position);
       if (s.behind) continue;
-      const rpx = this.radiusPx(t.group.position, t.radius) * 1.25 + 8;
+      const rpx = Math.max(40, this.radiusPx(t.group.position, t.radius) * 1.35) + 12;   // forgiving
       const d = Math.hypot(s.x - x, s.y - y);
       if (d < rpx && d / rpx < bestScore) { best = t; bestScore = d / rpx; }
     }
@@ -390,7 +391,7 @@ export class Shooter {
 
     // input
     for (const p of I.hands) {
-      if (p.fire) { p.fire = false; if (p.present) this.fire(p, p.fireAim || p.aim); }
+      if (p.fire) { p.fire = false; if (p.present) { this.lastWhy = p.fireWhy === 'flick' ? 'recoil flick' : 'thumb trigger'; this.fire(p, p.fireAim || p.aim); } }
       if (p.present && p.fist) this.startReload();
     }
     const m = I.mouse;
@@ -446,6 +447,24 @@ export class Shooter {
   }
 
   // ---------------- HUD ----------------
+  /** Live diagnostics (key D in the game): what the tracker sees, so problems can be pinned down. */
+  _drawDebug() {
+    const el = this.$('g-debug');
+    if (!this.debug) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    const tr = this.tracker || {};
+    const rows = [`TRACKING ${tr.trackRate ?? '--'} fps &middot; ${tr.detectMs ? tr.detectMs.toFixed(1) : '--'} ms/frame`];
+    this.interaction.hands.forEach((p, i) => {
+      if (!p.present) { rows.push(`HAND ${i + 1}: not seen`); return; }
+      const th = p.thumbRatio ?? 0;
+      rows.push(`HAND ${i + 1}: ${p.gunPose ? '<b class="ok">FINGER GUN</b>' : (p.open ? 'open palm (shield)' : p.fist ? 'fist (reload)' : '<b class="bad">no gun pose</b>')}`
+        + ` &middot; thumb ${th.toFixed(2)} <span class="dim">(fires &lt; ${C.thumbDownT.toFixed(2)})</span> ${p.thumbDown ? 'DOWN' : 'up'}`
+        + ` &middot; flick ${(p.pitchVel || 0).toFixed(1)} <span class="dim">(fires &gt; ${C.flickSpeed})</span>`);
+    });
+    rows.push(`LAST SHOT: ${this.lastWhy || '-'} &middot; shots ${this.shots} &middot; hits ${this.hits}`);
+    el.innerHTML = rows.join('<br>');
+  }
+
   banner(title, sub, seconds) {
     const el = this.$('g-banner');
     el.innerHTML = `<div class="t">${title}</div>${sub ? `<div class="s">${sub}</div>` : ''}`;
@@ -498,6 +517,7 @@ export class Shooter {
 
     this._hudT = (this._hudT || 0) + 1;
     if (this._hudT % 6) return;
+    this._drawDebug();
     this.$('g-score').textContent = this.score;
     this.$('g-wave').textContent = this.wave || '-';
     this.$('g-combo').textContent = `x${this.multiplier}`;

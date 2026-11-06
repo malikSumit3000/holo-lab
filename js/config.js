@@ -23,10 +23,15 @@ const DEFAULTS = {
   pullDrillDist: 0.9,      // release a pulled-out part this far from its slot to drill into it
 
   // --- Holo Shooter ---
-  aimAssist: 0.35,         // (tunable) how strongly the crosshair is pulled toward nearby targets (0 = off)
-  aimAssistPx: 70,         // ... within this many pixels
-  aimExtend: 0.6,          // crosshair sits this far beyond the fingertip (fraction of finger length)
-  thumbDownT: 0.38,        // thumb closer than this (x palm size) to the index = trigger pulled
+  aimAssist: 0.5,          // (tunable) how strongly the crosshair is pulled toward nearby targets (0 = off)
+  aimAssistPx: 90,         // ... within this many pixels
+  aimGain: 1.6,            // (tunable) "reach": small hand moves cover the whole screen
+  aimPoint: 0.5,           // (tunable) how much the finger's 3-D pointing direction steers the crosshair
+  aimSmoothing: 1.6,       // One Euro min cutoff for the crosshair (higher = snappier)
+  aimResponsiveness: 0.02, // One Euro beta for the crosshair
+  fireMode: 'both',        // 'thumb' (drop thumb), 'flick' (recoil the finger up), or 'both'
+  flickSpeed: 7,           // (tunable) rad/s of upward finger rotation that counts as a recoil flick
+  thumbDownT: 0.42,        // (tunable) thumb closer than this (x palm size) to the index = trigger pulled
   thumbUpT: 0.55,          // thumb further than this = cocked again
   fireDebounce: 0.15,      // seconds between shots, minimum
   magazine: 8,
@@ -43,7 +48,11 @@ export const TUNABLES = [
   { key: 'depthGain', label: 'Depth sensitivity', min: 0, max: 3, step: 0.05 },
   { key: 'twistGain', label: 'Twist sensitivity', min: 0, max: 3, step: 0.05 },
   { key: 'grabMagnet', label: 'Grab zone size', min: 1, max: 2, step: 0.05 },
-  { key: 'aimAssist', label: 'Shooter aim assist', min: 0, max: 0.8, step: 0.05 },
+  { key: 'aimAssist', label: 'Shooter: aim assist', min: 0, max: 0.9, step: 0.05 },
+  { key: 'aimGain', label: 'Shooter: aim reach', min: 0.8, max: 3, step: 0.05 },
+  { key: 'aimPoint', label: 'Shooter: finger-direction aiming', min: 0, max: 1.5, step: 0.05 },
+  { key: 'thumbDownT', label: 'Shooter: thumb trigger sensitivity', min: 0.2, max: 0.6, step: 0.01 },
+  { key: 'flickSpeed', label: 'Shooter: flick-to-fire speed', min: 3, max: 15, step: 0.5 },
 ];
 
 const STORE_KEY = 'holo-lab-config-v1';

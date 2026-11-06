@@ -139,6 +139,7 @@ const focus = new FocusManager({ scene, objects, sfx, toast, particles });
 focus.interaction = interaction;
 interaction.focus = focus;
 const shooter = new Shooter({ scene, camera, interaction, particles, sfx, objects, focus, onExit: () => shooter.stop() });
+shooter.tracker = tracker;
 
 // camera rig: head tracking ("3D window") + screen shake
 const rig = { on: false, loading: false, head: new THREE.Vector3(), fx: new OneEuro(), fy: new OneEuro() };
@@ -202,6 +203,7 @@ addEventListener('keydown', async (e) => {
   if (shooter.active) {
     if (k === 'escape') shooter.stop();
     else if (k === 'r') shooter.startReload();
+    else if (k === 'd') shooter.debug = !shooter.debug;
     else if (k === 'm') toast(sfx.toggleMute() ? 'SOUND OFF' : 'SOUND ON');
     else if (k === 'f') { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); }
     else if (k === 't') toggleTuning();
@@ -308,10 +310,13 @@ if (new URLSearchParams(location.search).has('test')) {
 }
 
 // ---------------- render loop ----------------
+// tick() = one frame of app logic. Normally driven by the browser's animation frames; the test
+// harness can take over the clock (manualClock) so tests run at an exact, simulated 60 fps
+// even when the window is in the background.
 let last = performance.now(), t = 0, fps = 60, hudTimer = 0;
-function frame(now) {
-  requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000);
+const clock = { manual: false };
+function tick(now, dtOverride = null) {
+  const dt = dtOverride ?? Math.min(0.05, (now - last) / 1000);
   last = now;
   t += dt;
   sharedTime.value = t;
@@ -339,11 +344,16 @@ function frame(now) {
     $('st-objects').textContent = objects.filter((o) => !o.dying).length;
     $('st-mode').textContent = shooter.active ? 'HOLO SHOOTER' : focus.depth ? `DRILL DEPTH ${focus.depth}` : interaction.penMode ? 'LIGHT PEN' : 'MANIPULATE';
     $('st-fps').textContent = Math.round(fps);
+    $('st-track').textContent = tracker.cameraOk ? `${tracker.trackRate ?? '--'} fps` : 'off';
   }
-  composer.render(dt);
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!clock.manual) tick(now);
+  composer.render();
 }
 requestAnimationFrame(frame);
 onResize();
 
 // handy for debugging in the browser console
-window.holo = { scene, camera, objects, interaction, focus, shooter, rig, spawn, clearAll, tracker, bloom, CONFIG, THREE };
+window.holo = { scene, camera, objects, interaction, focus, shooter, rig, spawn, clearAll, tracker, bloom, CONFIG, THREE, tick, clock };

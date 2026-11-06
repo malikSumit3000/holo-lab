@@ -203,6 +203,13 @@ body.game #dock, body.game #help, body.game #crumbs, body.game #infocard, body.g
   margin-top: 18px; font-family: var(--font); letter-spacing: 4px; font-size: 14px; color: #fff; cursor: pointer;
   background: rgba(62,232,255,.15); border: 1px solid var(--holo); padding: 12px 28px; box-shadow: 0 0 20px var(--holo-dim);
 }
+#g-debug {
+  position: fixed; left: 40px; bottom: 90px; font-size: 11px; line-height: 1.8; letter-spacing: .5px;
+  background: rgba(2, 10, 18, .7); border: 1px solid var(--holo-dim); padding: 8px 12px; max-width: 70vw;
+}
+#g-debug .ok { color: #7dffb0; font-weight: normal; }
+#g-debug .bad { color: var(--danger); font-weight: normal; }
+#g-debug .dim { opacity: .55; }
 #g-hint { position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 13px; letter-spacing: 3px; color: var(--hot); opacity: 0; transition: opacity .2s; }
 #g-hint.show { opacity: 1; }
 #g-dmg { position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(255, 30, 60, .55) 100%); opacity: 0; }

@@ -9,14 +9,34 @@ function pose(name) {
   const P = JSON.parse(JSON.stringify(OPEN));
   if (name === 'pinch') P[4] = [P[8][0] + 4, P[8][1] + 4];
   if (name === 'fist') Object.assign(P, { 4: [-20, -100], 7: [-38, -150], 8: [-35, -110], 11: [0, -160], 12: [0, -120], 15: [30, -150], 16: [30, -115], 19: [58, -140], 20: [55, -105] });
-  // finger gun: index out, other fingers curled; thumb up (cocked) or down against the index (fire)
+  // finger gun POINTING AT THE CAMERA: the index looks short in 2-D (foreshortened) but is extended in 3-D.
+  // Thumb up = cocked, thumb down against the index = fire; 'gunflick' = finger snapped upward (recoil).
   const curled = { 11: [0, -160], 12: [0, -120], 15: [30, -150], 16: [30, -115], 19: [58, -140], 20: [55, -105] };
-  if (name === 'gun') Object.assign(P, curled, { 2: [-70, -60], 3: [-100, -80], 4: [-130, -95] });
-  if (name === 'gunfire') Object.assign(P, curled, { 2: [-60, -70], 3: [-60, -115], 4: [-48, -150] });
+  const towardCam = { 6: [-38, -150], 7: [-40, -160], 8: [-41, -168] };
+  if (name === 'gun') Object.assign(P, curled, towardCam, { 2: [-70, -60], 3: [-100, -80], 4: [-130, -95] });
+  if (name === 'gunfire') Object.assign(P, curled, towardCam, { 2: [-60, -70], 3: [-55, -120], 4: [-42, -148] });
+  if (name === 'gunflick') Object.assign(P, curled, { 6: [-38, -175], 7: [-40, -200], 8: [-41, -222], 2: [-70, -60], 3: [-100, -80], 4: [-130, -95] });
   return P;
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// depth (metres, negative = toward the camera) for the 3-D "world" landmarks of each pose
+const DEPTH = {
+  gun: { 6: -0.025, 7: -0.045, 8: -0.065 },
+  gunfire: { 6: -0.025, 7: -0.045, 8: -0.065, 3: -0.01, 4: -0.02 },
+  gunflick: { 6: -0.02, 7: -0.03, 8: -0.035 },
+};
+const M_PER_PX = 0.0006;   // ~8.6 cm palm
+
+// Simulated clock: once the tests start, the harness drives the app frame by frame at exactly 60 fps,
+// so results don't depend on the browser throttling a background window.
+const FRAME = 1000 / 60;
+let APP = null, manual = false, vnow = 0;
+function step() { vnow += FRAME; APP.tick(vnow, FRAME / 1000); }
+async function vsleep(ms) {
+  const n = Math.ceil(ms / FRAME);
+  for (let i = 0; i < n; i++) { step(); if (i % 30 === 29) await Promise.resolve(); }
+}
+const sleep = (ms) => (manual ? vsleep(ms) : new Promise((r) => setTimeout(r, ms)));
 
 export async function runTests(H) {
   const I = H.interaction, V = H.THREE.Vector3;
@@ -26,7 +46,10 @@ export async function runTests(H) {
   panel.className = 'panel';
   panel.innerHTML = '<div class="title">REGRESSION TESTS <span>// running...</span></div>';
   document.body.appendChild(panel);
-  await sleep(2000);   // let the boot sequence finish spawning its demo objects
+  await sleep(2000);   // (real time) let the boot sequence finish spawning its demo objects
+  APP = H;
+  vnow = performance.now();
+  H.clock.manual = manual = true;
 
   /** landmarks whose pinch point (avg of thumb + index tips) lands on screen (sx, sy) */
   function handAt(sx, sy, p = 'open', jitter = 0) {
@@ -36,31 +59,33 @@ export async function runTests(H) {
     const rx = 1 - ((((sx + jx) / innerWidth) - 0.5) * kx + 0.5), ry = ((((sy + jy) / innerHeight) - 0.5) * ky + 0.5);
     // anchor: pinch point normally; index tip for the gun (so the thumb moving doesn't move the aim);
     // palm centre for 'palm'
-    const ids = p.startsWith('gun') ? [8] : p === 'palm' ? [0, 5, 9, 13, 17] : [4, 8];
+    const ids = p.startsWith('gun') ? [5] : p === 'palm' ? [0, 5, 9, 13, 17] : [4, 8];
     const ax = ids.reduce((s, i) => s + P[i][0], 0) / ids.length, ay = ids.reduce((s, i) => s + P[i][1], 0) / ids.length;
     // hand shape offsets are in camera pixels; x is mirrored on screen
-    return Object.keys(P).map((k) => ({ x: rx - (P[k][0] - ax) / VW, y: ry + (P[k][1] - ay) / VH, z: 0 }));
+    const lm = Object.keys(P).map((k) => ({ x: rx - (P[k][0] - ax) / VW, y: ry + (P[k][1] - ay) / VH, z: 0 }));
+    const dz = DEPTH[p] || {};
+    const world = Object.keys(P).map((k) => ({ x: P[k][0] * M_PER_PX, y: P[k][1] * M_PER_PX, z: dz[k] || 0 }));
+    return { lm, world };
   }
 
-  /** steps: [{ dur, hands: [{ from:[x,y], to:[x,y], pose, jitter }], each(now) }] */
-  function drive(steps) {
-    return new Promise((res) => {
-      let i = 0, t0 = performance.now();
-      const tick = (now) => {
-        const s = steps[i];
-        if (!s) return res();
-        const k = Math.min(1, (now - t0) / s.dur);
-        const lms = s.hands.map((h) => {
+  /** steps: [{ dur, hands: [{ from:[x,y], to:[x,y], pose, jitter }], each(now) }] - runs on the simulated clock */
+  async function drive(steps) {
+    let frames = 0;
+    for (const s of steps) {
+      const n = Math.max(1, Math.round(s.dur / FRAME));
+      for (let i = 1; i <= n; i++) {
+        const k = i / n;
+        const hands = s.hands.map((h) => {
           const to = h.to || h.from;
           return handAt(h.from[0] + (to[0] - h.from[0]) * k, h.from[1] + (to[1] - h.from[1]) * k, h.pose || 'open', h.jitter || 0);
         });
-        I.setHandResults({ landmarks: lms }, VW, VH, now / 1000);
-        if (s.each) s.each(now);
-        if (k >= 1) { i++; t0 = now; }
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
+        vnow += FRAME;
+        I.setHandResults({ landmarks: hands.map((h) => h.lm), worldLandmarks: hands.map((h) => h.world) }, VW, VH, vnow / 1000);
+        H.tick(vnow, FRAME / 1000);
+        if (s.each) s.each(vnow);
+        if (++frames % 30 === 0) await Promise.resolve();
+      }
+    }
   }
   const hold = (x, y, p, dur = 150) => ({ dur, hands: [{ from: [x, y], pose: p }] });
   const move = (a, b, p, dur) => ({ dur, hands: [{ from: a, to: b, pose: p }] });
@@ -306,6 +331,21 @@ export async function runTests(H) {
   }
   const gunHold = (x, y, p, dur) => ({ dur, hands: [{ from: [x, y], pose: p }] });
 
+  await test('finger gun pointed at the camera is recognised (3-D)', async () => {
+    await startGame();
+    let seen = 0, frames = 0;
+    await drive([{ dur: 500, hands: [{ from: [innerWidth * 0.4, innerHeight * 0.5], pose: 'gun' }], each: () => { frames++; if (I.hands[0].gunPose) seen++; } }]);
+    expect(seen / frames > 0.8, `gun pose seen in ${seen}/${frames} frames`);
+  });
+
+  await test('recoil flick fires exactly one shot', async () => {
+    await startGame();
+    const x = innerWidth * 0.3, y = innerHeight * 0.55;
+    await drive([gunHold(x, y, 'gun', 400), gunHold(x, y, 'gunflick', 40), gunHold(x, y, 'gun', 400)]);
+    expect(G.shots === 1, `flick fired ${G.shots} shots`);
+    expect(G.lastWhy === 'recoil flick', `fired by ${G.lastWhy}`);
+  });
+
   await test('finger gun: one shot per trigger pull, no auto-fire, debounce', async () => {
     await startGame();
     const x = innerWidth * 0.3, y = innerHeight * 0.55;
@@ -330,7 +370,7 @@ export async function runTests(H) {
     const hx = innerWidth * 0.5, hy = innerHeight * 0.6;
     await drive([gunHold(hx, hy, 'gun', 350)]);
     const a = I.hands[0].aim;
-    const nx = hx + (tx - a.x), ny = hy + (ty - a.y);
+    const nx = hx + (tx - a.x) / H.CONFIG.aimGain, ny = hy + (ty - a.y) / H.CONFIG.aimGain;   // aim is amplified
     await drive([move([hx, hy], [nx, ny], 'gun', 300), gunHold(nx, ny, 'gun', 300), gunHold(nx, ny, 'gunfire', 200)]);
     expect(!d.alive, `drone survived (shots ${G.shots}, hits ${G.hits})`);
     expect(G.score > 0, 'no score');
@@ -385,6 +425,7 @@ export async function runTests(H) {
   });
 
   await reset();
+  H.clock.manual = manual = false;
   render(true);
   window.__testResults = results;
   console.log('[tests]', results.filter((r) => r.ok).length, '/', results.length, 'passed', results);

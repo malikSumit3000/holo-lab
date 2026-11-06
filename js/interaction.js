@@ -66,6 +66,7 @@ class Pointer {
 
   resetFilters() {
     this.fAim.reset(); this.aimHist = [];
+    this.pitchPrev = undefined; this.pitchT = undefined; this.pitchVel = 0; this.flickArmed = false;
     this.fCursor.reset(); this.fPalm.reset(); this.fDepth.reset(); this.fRoll.reset();
     this.fLm.forEach((f) => f.reset());
     this.rollRawPrev = null;
@@ -107,7 +108,8 @@ export class Interaction {
   // Input: hands
   // ======================================================================
   setHandResults(result, vw, vh, nowS) {
-    const detected = (result.landmarks || []).map((lm) => analyzeHand(lm, vw, vh));
+    const world = result.worldLandmarks || [];
+    const detected = (result.landmarks || []).map((lm, i) => analyzeHand(lm, vw, vh, world[i]));
     const free = new Set(this.hands);
     // keep each physical hand in the same slot: match by closeness to where the slot was last seen
     const assignments = [];
@@ -173,25 +175,50 @@ export class Interaction {
       return { x: o.x, y: o.y, z: l.z };
     });
 
-    // ---- finger gun: aim along the index finger, thumb drop = trigger ----
-    const tip = this._toScreen(f.lm[8]), knuckle = this._toScreen(f.lm[5]);
-    p.fAim.filter(tip.x + (tip.x - knuckle.x) * C.aimExtend, tip.y + (tip.y - knuckle.y) * C.aimExtend, t, mc, beta, p.aim);
+    // ---- finger gun ----
+    // Aim = the index KNUCKLE (steady, doesn't move when the thumb or finger twitches), amplified around
+    // the screen centre so small hand moves cover the screen, plus the finger's real 3-D pointing direction.
+    const knuckle = this._toScreen(f.lm[5]);
+    const cx = innerWidth / 2, cy = innerHeight / 2, reach = Math.max(innerWidth, innerHeight) * 0.5;
+    const rawX = cx + (knuckle.x - cx) * C.aimGain + (-f.pointDir.x) * C.aimPoint * reach;   // mirrored
+    const rawY = cy + (knuckle.y - cy) * C.aimGain + (f.pointDir.y) * C.aimPoint * reach;
+    p.fAim.filter(clamp(rawX, 0, innerWidth), clamp(rawY, 0, innerHeight), t, C.aimSmoothing, C.aimResponsiveness, p.aim);
     p.aimHist.push({ t, x: p.aim.x, y: p.aim.y });
-    while (p.aimHist.length > 2 && t - p.aimHist[0].t > 0.15) p.aimHist.shift();
+    while (p.aimHist.length > 2 && t - p.aimHist[0].t > 0.2) p.aimHist.shift();
     p.gunPose = f.gunPose;
+    p.thumbRatio = f.thumbRatio;
+
+    const shoot = (why) => {
+      if (!f.gunPose || t - p.lastShot < C.fireDebounce) return;
+      p.fire = true;
+      p.fireWhy = why;
+      p.lastShot = t;
+      // aim from ~100 ms before the trigger, so the trigger motion itself doesn't throw the shot off
+      const before = p.aimHist.find((a) => t - a.t <= 0.1) || p.aimHist[p.aimHist.length - 1];
+      p.fireAim = { x: before.x, y: before.y };
+    };
+
+    // Fire method 1 - thumb hammer: cocked (thumb out) -> down (thumb against the index)
     const wasCocked = p.cocked;
-    if (p.thumbDown) { if (f.thumbRatio > C.thumbUpT) p.thumbDown = false; }
+    const up = Math.max(C.thumbUpT, C.thumbDownT + 0.08);
+    if (p.thumbDown) { if (f.thumbRatio > up) p.thumbDown = false; }
     else if (f.thumbRatio < C.thumbDownT) {
       p.thumbDown = true;
-      // fire only on a real "cocked -> down" pull, never while the thumb just stays down
-      if (wasCocked && f.gunPose && t - p.lastShot >= C.fireDebounce) {
-        p.fire = true;
-        p.lastShot = t;
-        const before = p.aimHist.find((a) => t - a.t <= 0.1) || p.aimHist[p.aimHist.length - 1];
-        p.fireAim = { x: before.x, y: before.y };
-      }
+      if (wasCocked && C.fireMode !== 'flick') shoot('thumb');
     }
     p.cocked = f.gunPose && !p.thumbDown;
+
+    // Fire method 2 - recoil flick: the finger snaps upward quickly (like a gun kicking)
+    const pitch = Math.atan2(-f.pointDir.y, Math.hypot(f.pointDir.x, f.pointDir.z));
+    if (p.pitchPrev !== undefined && p.pitchT !== undefined && t > p.pitchT) {
+      const v = (pitch - p.pitchPrev) / (t - p.pitchT);
+      p.pitchVel = (p.pitchVel || 0) * 0.3 + v * 0.7;
+    }
+    p.pitchPrev = pitch;
+    p.pitchT = t;
+    if (p.flickArmed === undefined) p.flickArmed = true;
+    if (p.flickArmed && p.pitchVel > C.flickSpeed && C.fireMode !== 'thumb') { shoot('flick'); p.flickArmed = false; }
+    else if (!p.flickArmed && Math.abs(p.pitchVel) < 1.5) p.flickArmed = true;
   }
 
   // ======================================================================
