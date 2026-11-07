@@ -142,9 +142,15 @@ V4 ENGINE
 - Normalise text ("show me a…", "spawn", plurals), then fuzzy-match names/aliases/tags; show the top 3 matches if unsure ("Did you mean: jet engine / engine / turbine?").
 
 ### 4.4 Generate when not in the library (local AI)
-- Send the request to the **local Qwen model (Ollama, thinking off)** via a proxy endpoint in `run.py`; it returns a JSON part tree of primitives (box, cylinder, sphere, cone, torus) with positions, sizes, colours and hierarchy.
-- JSON is validated and size-capped before building; on failure it retries once, then says what went wrong.
-- Because it's built from parts, generated objects explode and drill down too.
+- The request goes to the **local Qwen model (Ollama, thinking off)** through `run.py`, which starts Ollama if needed.
+- **Relational designs (as built):** small models are bad at coordinates, so the AI only describes shapes and how they
+  attach ("Head on top of Torso", "Arm on the left, mirrored", "4 Legs at the corners under the Seat"). `generate.js`
+  computes exact positions, so parts never float or hide inside each other. The attachment tree becomes the part tree:
+  parts explode along the direction they're attached in, and anything with parts attached can be drilled into.
+- Output is capped (16 parts, length limit) so the model can't run away; JSON is validated and clamped before building.
+- Designs are cached in the browser, so asking for the same thing again is instant.
+- Honest limit: an 8B model's designs are simple and sometimes odd (e.g. a chair back that's too deep). A bigger local
+  model (`HOLO_MODEL=qwen3:14b`) gives better designs if your Mac has the memory.
 
 **Acceptance tests:** "show me a planet / an engine / a gearbox" spawns the right thing offline; an unknown object ("a rocket") is generated as an explodable part tree within ~15 s; garbage AI output never crashes the app; licences for every downloaded model are listed.
 
@@ -156,5 +162,5 @@ V4 ENGINE
 |---|---|
 | 1 – Precision | built – 13/13 regression tests passed (synthetic hands); needs a real-hand feel check |
 | 2 – Drill-down parts | built – drill chain, ghosting, breadcrumbs, 10-cycle test passed; needs a real-hand feel check |
-| 3 – Holo Shooter | built – 19/19 regression tests passed (6 new game tests); needs a real-hand feel check |
-| 4 – Voice → object | next |
+| 3 – Holo Shooter | built; aiming rebuilt in 3-D after first play-test – paused here, needs a real-hand feel check |
+| 4 – Voice → object | built – 25/25 tests; local AI verified end to end (rocket 15 s, robot 44 s); speech + library download need your OK / real mic |

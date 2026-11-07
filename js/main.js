@@ -15,6 +15,9 @@ import { FocusManager } from './focus.js';
 import { CONFIG, TUNABLES, saveConfig, resetConfig } from './config.js';
 import { Shooter } from './game.js';
 import { OneEuro } from './filters.js';
+import { Library } from './library.js';
+import { Voice } from './voice.js';
+import { generate, aiStatus } from './generate.js';
 
 const MAX_OBJECTS = 10;
 FACTORIES.engine = () => new AssemblyObject(ENGINE_DEF);   // detailed, drillable engine
@@ -104,9 +107,19 @@ function toast(text, ms = 1800) {
 function spawn(type, at = null) {
   const make = FACTORIES[type];
   if (!make) return null;
+  if (!roomForMore()) return null;
+  return addObject(make(), at);
+}
+
+function roomForMore() {
+  if (objects.filter((o) => !o.dying).length < MAX_OBJECTS) return true;
+  toast('MAX OBJECTS - disintegrate some first (fist hold)');
+  return false;
+}
+
+/** Put a newly made object into the scene at a free spot. */
+function addObject(o, at = null) {
   if (focus.depth) focus.reset();
-  if (objects.filter((o) => !o.dying).length >= MAX_OBJECTS) { toast('MAX OBJECTS - disintegrate some first (fist hold)'); return null; }
-  const o = make();
   if (at) o.group.position.copy(at);
   else {
     // find a free spot so new objects don't spawn inside existing ones
@@ -197,7 +210,13 @@ video.addEventListener('loadedmetadata', updateCover);
 // ---------------- keyboard ----------------
 addEventListener('keydown', async (e) => {
   if (e.metaKey || e.ctrlKey) return;
+  if (e.target.matches && e.target.matches('input, textarea')) {      // typing a command
+    if (e.key === 'Escape') e.target.blur();
+    return;
+  }
   const k = e.key.toLowerCase();
+  if (k === ' ' && !shooter.active) { e.preventDefault(); if (!e.repeat) startListening(); return; }
+  if (k === '/' && !shooter.active) { e.preventDefault(); $('cmd').focus(); return; }
   if (k === 'g') return shooter.active ? shooter.stop() : shooter.start();
   if (k === 'w') return toggleHeadTracking();
   if (shooter.active) {
@@ -224,6 +243,116 @@ addEventListener('keydown', async (e) => {
     try { const label = await tracker.nextCamera(); toast(label ? `CAMERA: ${label.toUpperCase()}` : 'ONLY ONE CAMERA FOUND'); updateCover(); }
     catch { toast('COULD NOT SWITCH CAMERA'); }
   } else if ((k === 'delete') && interaction.mouse.hoverObj) interaction.destroy(interaction.mouse.hoverObj);
+});
+
+// ---------------- voice / typed commands -> objects ----------------
+const library = new Library();
+const voice = new Voice({ onState: renderVoice });
+let busy = false;
+
+function cmdStatus(html, kind = '') {
+  const el = $('cmd-status');
+  el.innerHTML = html;
+  el.className = kind;
+}
+
+function renderVoice(s) {
+  const mic = $('mic');
+  mic.classList.toggle('live', s.state === 'listening');
+  $('btn-voice')?.classList.toggle('active', s.state === 'listening');
+  if (s.state === 'listening') {
+    const bars = Math.round(Math.min(1, (s.level || 0) * 4) * 12);
+    cmdStatus(`LISTENING <span class="meter">${'|'.repeat(bars)}${'.'.repeat(12 - bars)}</span> release SPACE (or pinch MIC) when done`, 'live');
+  } else if (s.state === 'downloading') {
+    cmdStatus(`Downloading speech model (one time, ${Math.round(s.mb)} MB) ... ${Math.round(s.progress * 100)}%`, 'work');
+  } else if (s.state === 'loading') cmdStatus('Loading speech model...', 'work');
+  else if (s.state === 'transcribing') cmdStatus('Understanding...', 'work');
+}
+
+async function startListening() {
+  if (voice.listening || busy) return;
+  try {
+    voice.ensureModel().catch(() => {});        // start loading Whisper while you talk
+    await voice.start();
+    sfx.press();
+  } catch (e) {
+    console.error(e);
+    cmdStatus('Microphone blocked - allow it in the browser (and for Chrome in System Settings > Privacy > Microphone)', 'err');
+  }
+}
+
+async function stopListening() {
+  if (!voice.listening) return;
+  sfx.press();
+  try {
+    const text = await voice.stop();
+    if (!text) { cmdStatus("Didn't catch that - hold SPACE and speak a bit longer", 'err'); return; }
+    $('cmd').value = text;
+    handleRequest(text);
+  } catch (e) {
+    console.error(e);
+    cmdStatus(`Speech recognition failed: ${e.message || e}`, 'err');
+  }
+}
+addEventListener('keyup', (e) => { if (e.key === ' ' && voice.listening) stopListening(); });
+
+function chips(list) {
+  $('cmd-chips').innerHTML = list.map((c) => `<button data-cmd="${c.cmd}">${c.label}</button>`).join('');
+}
+
+async function spawnEntry(entry) {
+  if (!roomForMore()) return null;
+  if (entry.kind === 'builtin') { const o = spawn(entry.id); cmdStatus(`<b>${entry.name}</b> from the library`, 'ok'); return o; }
+  cmdStatus(`Loading <b>${entry.name}</b>...`, 'work');
+  const def = await library.defFor(entry);
+  const o = addObject(new AssemblyObject(def));
+  cmdStatus(`<b>${entry.name}</b> from your library${def.solid ? ' (one solid piece - grab, twist and resize it)' : ' - two hands + spread to take it apart'}`, 'ok');
+  return o;
+}
+
+async function generateObject(request) {
+  if (!roomForMore()) return null;
+  busy = true;
+  const t0 = performance.now();
+  const timer = setInterval(() => { $('cmd-elapsed') && ($('cmd-elapsed').textContent = `${((performance.now() - t0) / 1000).toFixed(0)}s`); }, 500);
+  try {
+    const def = await generate(request, { onStatus: (msg) => cmdStatus(`${msg} <span id="cmd-elapsed"></span>`, 'work') });
+    const o = addObject(new AssemblyObject(def));
+    cmdStatus(`<b>${def.name}</b> designed by your local AI in ${((performance.now() - t0) / 1000).toFixed(0)}s - two hands + spread to take it apart`, 'ok');
+    return o;
+  } catch (e) {
+    cmdStatus(`Couldn't generate it: ${e.message || e}`, 'err');
+    return null;
+  } finally { clearInterval(timer); busy = false; }
+}
+
+/** "show me a jet engine" -> library match, suggestions, or AI generation. */
+async function handleRequest(text) {
+  text = (text || '').trim();
+  if (!text || busy) return null;
+  chips([]);
+  const matches = library.match(text);
+  const best = matches[0];
+  if (best && best.score >= 0.6) return spawnEntry(best.entry);
+  if (best && best.score >= 0.35) {
+    cmdStatus(`Did you mean...`, '');
+    chips([...matches.filter((m) => m.score >= 0.3).map((m) => ({ cmd: `pick:${m.entry.id}`, label: m.entry.name.toUpperCase() })),
+      { cmd: `gen:${text}`, label: `&#10022; MAKE "${text.toUpperCase().slice(0, 24)}" WITH AI` }]);
+    return null;
+  }
+  return generateObject(text);
+}
+
+function onCommand(cmd) {
+  if (cmd === 'mic') return voice.listening ? stopListening() : startListening();
+  chips([]);
+  if (cmd.startsWith('pick:')) { const e = library.entries.find((x) => x.id === cmd.slice(5)); if (e) spawnEntry(e); }
+  else if (cmd.startsWith('gen:')) generateObject(cmd.slice(4));
+}
+interaction.onCommand = onCommand;
+
+$('cmd').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); const v = e.target.value; e.target.blur(); handleRequest(v); }
 });
 
 // ---------------- tuning panel (key T) ----------------
@@ -292,6 +421,8 @@ async function boot() {
   }
   $('st-tracking').textContent = tracker.cameraOk ? `HANDS/${tracker.delegate}` : 'MOUSE';
   await wait(500);
+  await library.load();
+  log(`Object library: ${library.entries.length} objects (${library.downloadedCount} downloaded models)`, 'ok');
   log('All systems nominal.', 'ok');
   await wait(400);
   $('boot').classList.add('gone');
@@ -356,4 +487,4 @@ requestAnimationFrame(frame);
 onResize();
 
 // handy for debugging in the browser console
-window.holo = { scene, camera, objects, interaction, focus, shooter, rig, spawn, clearAll, tracker, bloom, CONFIG, THREE, tick, clock };
+window.holo = { scene, camera, objects, interaction, focus, shooter, rig, spawn, clearAll, tracker, bloom, CONFIG, THREE, tick, clock, library, voice, handleRequest, spawnEntry, addObject, aiStatus };

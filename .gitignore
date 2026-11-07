@@ -10,3 +10,6 @@ __pycache__/
 
 # Downloaded at runtime / large caches (Phase 4 library downloads go here)
 library/cache/
+
+# Object library (re-download with: python tools/fetch_library.py)
+library/

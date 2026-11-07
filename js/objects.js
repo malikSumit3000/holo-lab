@@ -116,7 +116,7 @@ export class HoloObject {
 
   dispose() {
     this.group.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
+      if (o.geometry && !o.geometry.userData.keep) o.geometry.dispose();   // 'keep' = shared with a cached model
       if (o.material) {
         if (o.material.map) o.material.map.dispose();
         o.material.dispose();

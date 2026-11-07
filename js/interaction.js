@@ -229,7 +229,7 @@ export class Interaction {
     const move = (e) => { m.present = true; m.lastSeen = performance.now() / 1000; m.screen.x = m.palmScreen.x = e.clientX; m.screen.y = m.palmScreen.y = e.clientY; };
     addEventListener('mousemove', move);
     addEventListener('mousedown', (e) => {
-      if (e.target.closest && e.target.closest('#boot, #tuning, #testpanel')) return;
+      if (e.target.closest && e.target.closest('#boot, #tuning, #testpanel, #cmdbar input')) return;
       move(e);
       if (e.button === 0) m.setPinch(true);
       if (e.button === 2) m.open = true;
@@ -298,7 +298,7 @@ export class Interaction {
   _buttonAt(x, y) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     const el = document.elementFromPoint(x, y);
-    return el && el.closest ? el.closest('#dock button, #crumbs button') : null;
+    return el && el.closest ? el.closest('#dock button, #crumbs button, #cmdbar button') : null;
   }
 
   // ======================================================================
@@ -357,7 +357,7 @@ export class Interaction {
       const hp = active.find((p) => p.state === 'pull')?.pull?.part || active.find((p) => p.hoverPart)?.hoverPart || null;
       this.focus.setHoverPart(hp);
     }
-    document.querySelectorAll('#dock button, #crumbs button').forEach((b) => b.classList.toggle('hover', this.pointers.some((p) => p.present && p.kind === 'hand' && p.hoverButton === b)));
+    document.querySelectorAll('#dock button, #crumbs button, #cmdbar button').forEach((b) => b.classList.toggle('hover', this.pointers.some((p) => p.present && p.kind === 'hand' && p.hoverButton === b)));
 
     this._physics(dt);
     this._updateCursors();
@@ -395,6 +395,7 @@ export class Interaction {
     btn.classList.add('pressed');
     setTimeout(() => btn.classList.remove('pressed'), 180);
     this.sfx.press();
+    if (btn.dataset.cmd !== undefined) { if (this.onCommand) this.onCommand(btn.dataset.cmd); return; }
     if (btn.dataset.level !== undefined) {
       if (!this.focus) return;
       if (btn.dataset.level === 'back') this.focus.back();
@@ -402,6 +403,7 @@ export class Interaction {
       return;
     }
     const a = btn.dataset.action;
+    if (a === 'voice') { if (this.onCommand) this.onCommand('mic'); return; }
     if (a === 'pen') this.togglePen();
     else if (a === 'clear') this.onClear();
     else this.onSpawn(a);

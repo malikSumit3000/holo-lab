@@ -54,6 +54,8 @@
       <div class="sep"></div>
       <div class="row"><span>B / Esc</span><b>back up a level</b></div>
       <div class="row"><span>T</span><b>tracking tuning</b></div>
+      <div class="row"><span>SPACE (hold)</span><b>speak: "show me a..."</b></div>
+      <div class="row"><span>/</span><b>type a request</b></div>
       <div class="row"><span>G</span><b>Holo Shooter game</b></div>
       <div class="row"><span>W</span><b>3D window (head tracking)</b></div>
       <div class="row"><span>1-5</span><b>spawn</b></div>
@@ -69,13 +71,22 @@
       <button data-action="engine"><i>&#9881;</i>ENGINE</button>
       <button data-action="dna"><i>&#8779;</i>DNA</button>
       <button data-action="hypercube"><i>&#9635;</i>HYPERCUBE</button>
+      <button data-action="voice" id="btn-voice"><i>&#9673;</i>VOICE</button>
       <button data-action="pen" id="btn-pen"><i>&#9998;</i>LIGHT PEN</button>
-      <button data-action="game" id="btn-game"><i>&#9673;</i>GAME</button>
+      <button data-action="game" id="btn-game"><i>&#9678;</i>GAME</button>
       <button data-action="clear"><i>&#10005;</i>CLEAR</button>
     </div>
 
     <div id="toast"></div>
     <div id="crumbs"></div>
+    <div id="cmdbar">
+      <div class="cmd-row">
+        <button id="mic" data-cmd="mic" title="Hold SPACE to talk">MIC</button>
+        <input id="cmd" type="text" autocomplete="off" spellcheck="false" placeholder='Hold SPACE and say "show me a planet" - or type here and press Enter'>
+      </div>
+      <div id="cmd-status"></div>
+      <div id="cmd-chips"></div>
+    </div>
     <div id="infocard" class="panel"></div>
   </div>
 

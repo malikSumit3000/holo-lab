@@ -7,6 +7,7 @@
 //     build: () => THREE.Object3D,        // this part's own geometry (optional for pure groups)
 //     pos: [x, y, z],                     // position inside its parent
 //     rot: [x, y, z],                     // optional rotation (radians)
+//     matrix: THREE.Matrix4,              // optional full transform instead of pos/rot (3-D model files)
 //     explode: [x, y, z],                 // offset applied when the PARENT is exploded
 //     children: [ ...part definitions ],
 //     view: [x, y, z],                    // optional nice viewing angle when this part is the focus
@@ -23,12 +24,19 @@ export function buildNode(def) {
   if (def.build) g.add(def.build());
   for (const c of def.children || []) {
     const h = buildNode(c);
-    h.position.fromArray(c.pos || [0, 0, 0]);
-    if (c.rot) h.rotation.fromArray(c.rot);
+    placeNode(h, c);
     h.userData.basePos = h.position.clone();
     g.add(h);
   }
   return g;
+}
+
+export function placeNode(obj, def) {
+  if (def.matrix) def.matrix.decompose(obj.position, obj.quaternion, obj.scale);
+  else {
+    obj.position.fromArray(def.pos || [0, 0, 0]);
+    if (def.rot) obj.rotation.fromArray(def.rot);
+  }
 }
 
 export function countParts(def) {
@@ -46,8 +54,7 @@ export class AssemblyObject extends HoloObject {
     this.parts = [];
     for (const c of def.children || []) {
       const holder = buildNode(c);
-      holder.position.fromArray(c.pos || [0, 0, 0]);
-      if (c.rot) holder.rotation.fromArray(c.rot);
+      placeNode(holder, c);
       this.content.add(holder);
       this.parts.push({
         def: c, holder,

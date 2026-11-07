@@ -424,6 +424,97 @@ export async function runTests(H) {
     expect(I.mode === 'lab' && !G.root.children.length, 'game leftovers');
   });
 
+  // =================================== VOICE -> OBJECT ===================================
+  await test('matcher: everyday phrases find the right built-in object', async () => {
+    const cases = [
+      ['show me a planet', 'planet'], ['spawn the car engine please', 'engine'], ['can you make a tesseract', 'hypercube'],
+      ['give me a dna strand', 'dna'], ['arc reactor', 'reactor'], ['show me the earth', 'planet'], ['motor', 'engine'],
+    ];
+    const bad = cases.filter(([q, id]) => { const m = H.library.match(q)[0]; return !m || m.entry.id !== id || m.score < 0.6; })
+      .map(([q]) => `"${q}" -> ${H.library.match(q)[0]?.entry.id || 'nothing'} ${H.library.match(q)[0]?.score.toFixed(2) || ''}`);
+    expect(!bad.length, bad.join('; '));
+    const giraffe = H.library.match('a giraffe')[0];
+    expect(!giraffe || giraffe.score < 0.35, `"a giraffe" wrongly matched ${giraffe?.entry.id} (${giraffe?.score.toFixed(2)})`);
+    return `${cases.length} phrases OK, unknown objects go to the AI`;
+  });
+
+  await test('typed request spawns from the library; vague request offers choices', async () => {
+    const o = await H.handleRequest('show me the car engine please');
+    expect(o && o.name === 'V4 ENGINE' && H.objects.includes(o), 'engine not spawned');
+    await H.handleRequest('a cube');
+    const chips = [...document.querySelectorAll('#cmd-chips button')].map((b) => b.textContent);
+    expect(chips.some((c) => c.includes('TESSERACT')) && chips.some((c) => c.includes('WITH AI')), `chips: ${chips.join(' | ')}`);
+    document.getElementById('cmd-chips').innerHTML = '';
+  });
+
+  await test('a .glb model becomes an explodable, drillable part tree', async () => {
+    const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+    const src = H.spawn('engine', new V(0, 0, 0));
+    await sleep(800);
+    const glb = await new GLTFExporter().parseAsync(src.content, { binary: true });
+    H.clearAll(); await sleep(600);
+    const meta = { id: 'test_engine', name: 'Exported Engine', source: 'test', license: 'test' };
+    const def = await H.library.defFromBuffer(glb, meta);
+    expect(!def.solid && def.children.length >= 5, `only ${def.children?.length || 0} parts found`);
+    const { AssemblyObject } = await import('../parts.js');
+    const a = H.addObject(new AssemblyObject(def), new V(-1.5, 0, 0));
+    const b = H.addObject(new AssemblyObject(def), new V(1.5, 0, 0));
+    a.explodeTarget = 1; await sleep(1200);
+    const piston = a.parts.find((p) => /piston/i.test(p.def.name)) || a.parts[0];
+    H.focus.drill(a, piston); await sleep(1000);
+    expect(H.focus.depth === 1, 'could not drill into a part of the model');
+    H.focus.back(); await sleep(900);
+    I.destroy(b); await sleep(600);       // destroying one copy must not break the other (shared geometry)
+    let ok = true;
+    a.group.traverse((o) => { if (o.isMesh && !o.geometry.attributes.position) ok = false; });
+    expect(ok, 'geometry of the remaining copy was disposed');
+    return `${def.children.length} top-level parts`;
+  });
+
+  await test('AI designs are validated: garbage never crashes, good ones explode', async () => {
+    const { validateSpec, specToDef } = await import('../generate.js');
+    const bads = [null, 42, {}, { parts: [] }, { parts: [{ shape: 'blob', size: 'big' }] }];
+    for (const b of bads) { let threw = false; try { validateSpec(b); } catch { threw = true; } expect(threw, `accepted garbage: ${JSON.stringify(b)}`); }
+    // 200 parts with broken numbers + a mirrored, repeated part: limits must hold
+    const huge = { name: 'x', parts: Array.from({ length: 200 }, (_, i) => ({ name: `p${i}`, shape: 'box', size: [NaN, 1e9, -5], attach_to: 'p0', mirror: true, repeat: 8, pattern: 'ring' })) };
+    const v = validateSpec(huge);
+    expect(v.parts.length <= 40 && v.parts.every((p) => p.size.every((s) => Number.isFinite(s) && s > 0 && s <= 20)), 'input limits not enforced');
+    const { layoutSpec } = await import('../generate.js');
+    expect(layoutSpec(v).instances.length <= 60, 'instance limit not enforced');
+    // cyclic / unknown attachments must not hang or crash
+    specToDef({ name: 'loop', parts: [{ name: 'A', shape: 'box', size: [1, 1, 1] }, { name: 'B', shape: 'box', size: [1, 1, 1], attach_to: 'C' }, { name: 'C', shape: 'box', size: [1, 1, 1], attach_to: 'B' }, { name: 'D', shape: 'sphere', size: [1], attach_to: 'nobody' }] });
+
+    const robot = {
+      name: 'Robot', description: 'test robot',
+      parts: [
+        { name: 'Torso', shape: 'box', size: [1, 1.2, 0.6] },
+        { name: 'Head', shape: 'box', size: [0.7, 0.6, 0.6], attach_to: 'Torso', side: 'top' },
+        { name: 'Eye', shape: 'sphere', size: [0.15, 0.15, 0.1], attach_to: 'Head', side: 'front', inset: 0.3 },
+        { name: 'Arm', shape: 'capsule', size: [0.22, 1, 0.22], attach_to: 'Torso', side: 'left', align: 'top', mirror: true },
+        { name: 'Hand', shape: 'sphere', size: [0.26], attach_to: 'Arm', side: 'bottom' },
+        { name: 'Leg', shape: 'capsule', size: [0.3, 1.1, 0.3], attach_to: 'Torso', side: 'bottom', repeat: 2, pattern: 'corners' },
+      ],
+    };
+    const lay = layoutSpec(validateSpec(robot)).instances;
+    const get = (n) => lay.find((i) => i.name === n);
+    const torso = get('Torso'), head = get('Head'), la = get('Left Arm'), ra = get('Right Arm');
+    expect(head && head.center[1] > torso.center[1] + 0.3, 'head is not on top of the torso');
+    expect(la && ra && la.center[0] < torso.center[0] - torso.size[0] / 2 && ra.center[0] > torso.center[0] + torso.size[0] / 2, 'arms are not outside the torso');
+    expect(lay.filter((i) => i.part.name === 'Hand').length === 2, 'each arm should get its own hand');
+    const legs = lay.filter((i) => i.part.name === 'Leg');
+    expect(legs.length === 2 && legs[0].center[0] !== legs[1].center[0], 'legs overlap');
+
+    const { AssemblyObject } = await import('../parts.js');
+    const r = H.addObject(new AssemblyObject(specToDef(robot)), new V(0, 0, 0));
+    r.explodeTarget = 1; await sleep(1200);
+    expect(r.explodable && r.parts.length === 6, `robot top level has ${r.parts.length} parts (body, head, 2 arms, 2 legs)`);
+    const arm = r.parts.find((p) => p.def.name === 'Left Arm');
+    H.focus.drill(r, arm); await sleep(1000);
+    expect(H.focus.top && H.focus.top.parts.length === 1 && H.focus.top.parts[0].def.name === 'Hand', 'arm should drill down to its hand');
+    H.focus.back(); await sleep(900);
+    return 'robot laid out correctly; arm drills down to its hand';
+  });
+
   await reset();
   H.clock.manual = manual = false;
   render(true);
