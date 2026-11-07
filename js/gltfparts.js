@@ -88,7 +88,8 @@ export function gltfToDef(gltfScene, meta) {
     info: {
       what: meta.description || `${meta.name} - a 3-D model from your object library.`,
       material: 'Scanned / modelled 3-D object',
-      fact: `Source: ${meta.source || 'unknown'} · Licence: ${meta.license || 'unknown'}${meta.attribution ? ` · ${meta.attribution}` : ''}`,
+      fact: `Source: ${meta.source || 'unknown'} · Licence: ${meta.license || 'unknown'}${meta.attribution ? ` · ${meta.attribution}` : ''}`
+        + (/\bNC\b|-NC-/.test(meta.license || '') ? ' · NON-COMMERCIAL USE ONLY' : ''),
     },
     build: ownBuild ? () => { const g = new THREE.Group(); g.add(ownBuild()); R.decompose(g.position, g.quaternion, g.scale); return g; } : null,
     children: rootDef.children && rootDef.children.length ? rootDef.children : undefined,
