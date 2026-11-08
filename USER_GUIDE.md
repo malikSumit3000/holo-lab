@@ -4,6 +4,24 @@ Holo Lab is a holographic workbench in your browser. You control 3D holograms wi
 
 ---
 
+## Cool things to try
+
+New to Holo Lab? Start with these. Each one takes under a minute.
+
+1. **Go full hologram.** Press `F` for fullscreen and `V` to hide the camera video. Only the glowing holograms and your hand cursors remain.
+2. **Field-strip an engine.** Press `3` for the V4 Engine. Two-hand pinch it and spread your hands to blow it apart. Pull out a *Piston assembly*, let go far away to drill in, then explode that too and pull out the *Connecting rod*. Press `B` twice to watch everything fly back into place.
+3. **Play catch with a planet.** Pinch the Planet, flick your hand and let go. It flies across the room and bounces off the edges of the screen.
+4. **Hold a world in your hands.** Two-hand pinch the Planet and spread your hands wide to make it huge, then twist one hand to turn it.
+5. **Spin the DNA.** Press `4` and swipe an open palm across the helix to set it spinning.
+6. **Snap it out of existence.** Hold a fist over any object for one second and watch it disintegrate into particles.
+7. **Summon by voice.** Hold `SPACE` and say *"show me a milk truck."* When it appears, explode it with two hands and look at the parts.
+8. **Draw in the air, then walk around it.** Press `P` and pinch in empty space to draw glowing strokes, pushing and pulling your hand to draw in depth. Then press `W` for the 3D window and move your head. Your sculpture has real depth.
+9. **Look around a tesseract.** Press `5` and turn on the 3D window with `W`. Lean left, right, up and down to look around a four-dimensional cube.
+10. **Gunslinger mode.** Press `G`. Make a finger gun with one hand and hold up an open palm with the other as a shield. Survive to wave 5 to face the boss drone, and try to beat your best score.
+11. **Invent something (Mac version).** With Ollama running, type `/` then *"a rocket"* or *"a robot"*. Your local AI designs it from scratch, and you can take it apart like any other object.
+
+---
+
 ## Contents
 
 1. [What you need](#1-what-you-need)
