@@ -14,6 +14,8 @@ An Iron Man–style holographic workbench that runs in the browser. Grab, throw,
 - **GAME** starts the finger-gun shooter: aim with your index finger and flip your thumb to fire.
 - Press `H` for the full gesture list, and `T` for tracking tuning. A mouse works if you have no camera.
 
+See the **[User Guide](USER_GUIDE.md)** for every gesture, key, game control, setup option and troubleshooting tip.
+
 ## Online vs. Mac version
 
 | | Online (GitHub Pages) | Mac version (`python3 run.py`) |
