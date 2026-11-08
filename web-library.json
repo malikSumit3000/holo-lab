@@ -1,0 +1,110 @@
+{
+  "note": "Online library for the hosted version: models load straight from the Khronos glTF Sample Assets repository. Licences per model below.",
+  "models": [
+    {
+      "id": "camera",
+      "name": "Antique Camera",
+      "aliases": [
+        "camera",
+        "antique camera",
+        "old camera",
+        "tripod camera"
+      ],
+      "tags": [],
+      "file": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/AntiqueCamera/glTF-Binary/AntiqueCamera.glb",
+      "license": "CC0-1.0; LicenseRef-LegalMark-UX3D",
+      "attribution": "Maximillan Kamps (2018); Non-copyrightable logo (2017)",
+      "source": "Khronos glTF Sample Assets - AntiqueCamera"
+    },
+    {
+      "id": "avocado",
+      "name": "Avocado",
+      "aliases": [
+        "avocado",
+        "fruit"
+      ],
+      "tags": [],
+      "file": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Avocado/glTF-Binary/Avocado.glb",
+      "license": "CC0-1.0",
+      "attribution": "Microsoft (2017)",
+      "source": "Khronos glTF Sample Assets - Avocado"
+    },
+    {
+      "id": "boombox",
+      "name": "Boom Box",
+      "aliases": [
+        "boombox",
+        "boom box",
+        "radio",
+        "stereo",
+        "speaker"
+      ],
+      "tags": [],
+      "file": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb",
+      "license": "CC0-1.0",
+      "attribution": "Microsoft (2017)",
+      "source": "Khronos glTF Sample Assets - BoomBox"
+    },
+    {
+      "id": "lantern",
+      "name": "Lantern",
+      "aliases": [
+        "lantern",
+        "lamp",
+        "street lamp",
+        "street light"
+      ],
+      "tags": [],
+      "file": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF-Binary/Lantern.glb",
+      "license": "CC0-1.0",
+      "attribution": "sbtron (2017); Frank Galligan (2018)",
+      "source": "Khronos glTF Sample Assets - Lantern"
+    },
+    {
+      "id": "milk_truck",
+      "name": "Milk Truck",
+      "aliases": [
+        "truck",
+        "milk truck",
+        "lorry",
+        "delivery truck",
+        "van"
+      ],
+      "tags": [],
+      "file": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb",
+      "license": "CC-BY-4.0; LicenseRef-LegalMark-Cesium",
+      "attribution": "Cesium (2017); Non-copyrightable logo (2015)",
+      "source": "Khronos glTF Sample Assets - CesiumMilkTruck"
+    },
+    {
+      "id": "toy_car",
+      "name": "Toy Car",
+      "aliases": [
+        "toy car",
+        "car",
+        "race car",
+        "vehicle",
+        "automobile"
+      ],
+      "tags": [],
+      "file": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/ToyCar/glTF-Binary/ToyCar.glb",
+      "license": "CC0-1.0",
+      "attribution": "Guido Odendahl (2020); Eric Chadwick (2020)",
+      "source": "Khronos glTF Sample Assets - ToyCar"
+    },
+    {
+      "id": "water_bottle",
+      "name": "Water Bottle",
+      "aliases": [
+        "water bottle",
+        "bottle",
+        "flask"
+      ],
+      "tags": [],
+      "file": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/WaterBottle/glTF-Binary/WaterBottle.glb",
+      "license": "CC0-1.0",
+      "attribution": "Microsoft (2017)",
+      "source": "Khronos glTF Sample Assets - WaterBottle"
+    }
+  ]
+}

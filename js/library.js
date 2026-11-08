@@ -62,13 +62,18 @@ export class Library {
   }
 
   async load() {
-    try {
-      const r = await fetch('library/index.json', { cache: 'no-store' });
-      if (r.ok) {
+    // your downloaded library (Mac version) first; the hosted site has none, so it uses the online
+    // list, whose models load straight from the Khronos sample-assets repository
+    for (const url of ['library/index.json', 'web-library.json']) {
+      try {
+        const r = await fetch(url, { cache: 'no-store' });
+        if (!r.ok) continue;
         const data = await r.json();
         for (const e of data.models || []) this.entries.push({ kind: 'glb', aliases: [], tags: [], ...e });
-      }
-    } catch { /* no library downloaded yet - built-ins only */ }
+        this.source = url;
+        break;
+      } catch { /* try the next list */ }
+    }
     return this.entries;
   }
 

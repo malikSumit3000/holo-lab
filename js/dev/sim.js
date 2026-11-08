@@ -443,7 +443,9 @@ export async function runTests(H) {
     expect(o && o.name === 'V4 ENGINE' && H.objects.includes(o), 'engine not spawned');
     await H.handleRequest('a cube');
     const chips = [...document.querySelectorAll('#cmd-chips button')].map((b) => b.textContent);
-    expect(chips.some((c) => c.includes('TESSERACT')) && chips.some((c) => c.includes('WITH AI')), `chips: ${chips.join(' | ')}`);
+    const aiChip = chips.some((c) => c.includes('WITH AI'));
+    const { AI_AVAILABLE } = await import('../generate.js');   // hosted site: no AI chip
+    expect(chips.some((c) => c.includes('TESSERACT')) && aiChip === AI_AVAILABLE, `chips: ${chips.join(' | ')}`);
     document.getElementById('cmd-chips').innerHTML = '';
   });
 

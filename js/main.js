@@ -17,7 +17,7 @@ import { Shooter } from './game.js';
 import { OneEuro } from './filters.js';
 import { Library } from './library.js';
 import { Voice } from './voice.js';
-import { generate, aiStatus } from './generate.js';
+import { generate, aiStatus, AI_AVAILABLE } from './generate.js';
 
 const MAX_OBJECTS = 10;
 FACTORIES.engine = () => new AssemblyObject(ENGINE_DEF);   // detailed, drillable engine
@@ -306,12 +306,17 @@ async function spawnEntry(entry) {
   cmdStatus(`Loading <b>${entry.name}</b>...`, 'work');
   const def = await library.defFor(entry);
   const o = addObject(new AssemblyObject(def));
-  cmdStatus(`<b>${entry.name}</b> from your library${def.solid ? ' (one solid piece - grab, twist and resize it)' : ' - two hands + spread to take it apart'}`, 'ok');
+  cmdStatus(`<b>${entry.name}</b> from ${library.source === 'web-library.json' ? 'the online' : 'your'} library${def.solid ? ' (one solid piece - grab, twist and resize it)' : ' - two hands + spread to take it apart'}`, 'ok');
   return o;
 }
 
 async function generateObject(request) {
   if (!roomForMore()) return null;
+  if (!AI_AVAILABLE) {                       // hosted site: no local AI, so offer what the library has
+    cmdStatus(`"${request.replace(/</g, '&lt;')}" isn't in the online library. Try one of these:`, 'err');
+    chips(library.entries.slice(0, 8).map((e) => ({ cmd: `pick:${e.id}`, label: e.name.toUpperCase() })));
+    return null;
+  }
   busy = true;
   const t0 = performance.now();
   const timer = setInterval(() => { $('cmd-elapsed') && ($('cmd-elapsed').textContent = `${((performance.now() - t0) / 1000).toFixed(0)}s`); }, 500);
@@ -337,7 +342,7 @@ async function handleRequest(text) {
   if (best && best.score >= 0.35) {
     cmdStatus(`Did you mean...`, '');
     chips([...matches.filter((m) => m.score >= 0.3).map((m) => ({ cmd: `pick:${m.entry.id}`, label: m.entry.name.toUpperCase() })),
-      { cmd: `gen:${text}`, label: `&#10022; MAKE "${text.toUpperCase().slice(0, 24)}" WITH AI` }]);
+      ...(AI_AVAILABLE ? [{ cmd: `gen:${text}`, label: `&#10022; MAKE "${text.toUpperCase().slice(0, 24)}" WITH AI` }] : [])]);
     return null;
   }
   return generateObject(text);
@@ -422,7 +427,7 @@ async function boot() {
   $('st-tracking').textContent = tracker.cameraOk ? `HANDS/${tracker.delegate}` : 'MOUSE';
   await wait(500);
   await library.load();
-  log(`Object library: ${library.entries.length} objects (${library.downloadedCount} downloaded models)`, 'ok');
+  log(`Object library: ${library.entries.length} objects (${library.downloadedCount} ${library.source === 'web-library.json' ? 'online' : 'downloaded'} models)`, 'ok');
   log('All systems nominal.', 'ok');
   await wait(400);
   $('boot').classList.add('gone');

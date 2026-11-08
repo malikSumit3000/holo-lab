@@ -265,7 +265,12 @@ export function specToDef(raw) {
 }
 
 // ---------------- talking to the local AI (through run.py) ----------------
+/** The local AI only exists when Holo Lab runs on your own computer through run.py. */
+export const AI_AVAILABLE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+export const HOSTED_AI_MSG = 'Designing new objects with AI only works in the Mac version (run.py)';
+
 export async function aiStatus() {
+  if (!AI_AVAILABLE) return { ok: false, error: HOSTED_AI_MSG };
   try {
     const r = await fetch('/api/ai-status', { cache: 'no-store' });
     return await r.json();
@@ -285,6 +290,7 @@ function cachePut(key, spec) {
 
 /** Ask the local AI to design `request`. Retries once on bad output. Returns a part-tree definition. */
 export async function generate(request, { onStatus, cacheKey } = {}) {
+  if (!AI_AVAILABLE) throw new Error(HOSTED_AI_MSG);
   const key = cacheKey || request.toLowerCase();
   const cached = cacheGet(key);
   if (cached) { onStatus && onStatus('Loaded your earlier design'); return specToDef(cached); }
